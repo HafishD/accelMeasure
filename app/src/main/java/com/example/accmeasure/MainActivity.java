@@ -8,7 +8,11 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+//import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
+
+import com.google.android.material.snackbar.Snackbar;
 
 public class MainActivity extends AppCompatActivity
         implements SensorEventListener {
@@ -30,6 +34,8 @@ public class MainActivity extends AppCompatActivity
         // Get an instance of the TextView
         textView = findViewById(R.id.text_view);
 
+        Button button = findViewById(R.id.button);
+        button.setOnClickListener(view -> Snackbar.make(view, "スタートボタンが押されました", Snackbar.LENGTH_SHORT).show());
     }
 
     @Override
