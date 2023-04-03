@@ -8,23 +8,35 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-//import android.widget.Button;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 
-import com.google.android.material.snackbar.Snackbar;
+//import com.google.android.material.snackbar.Snackbar;
 
-import java.text.SimpleDateFormat;
-import java.util.Locale;
+//import java.text.SimpleDateFormat;
+//import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity
-        implements SensorEventListener {
+        implements SensorEventListener, Runnable, View.OnClickListener {
 
     private SensorManager sensorManager;
     private TextView textView, textInfo;
 
-    private long startTime;
+//    private long startTime;
+    private long checkpoint;
 
-    private final SimpleDateFormat dataFormat = new SimpleDateFormat("mm:ss.SS", Locale.JAPAN);
+    private Button startButton;
+
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private volatile boolean stopRun = false;
+
+    // private final SimpleDateFormat dataFormat = new SimpleDateFormat("mm:ss.SS", Locale.JAPAN);
+    private int count = 0;
+    private final String txt = "カウント：";
+    private String info;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -37,16 +49,26 @@ public class MainActivity extends AppCompatActivity
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 
         textInfo = findViewById(R.id.text_info);
+        info = txt + count;
+        textInfo.setText(info);
 
         // Get an instance of the TextView
         textView = findViewById(R.id.text_view);
 
+        /*
         findViewById(R.id.start).setOnClickListener(view -> {
             startTime = System.currentTimeMillis();
             Snackbar.make(view, "スタートしました", Snackbar.LENGTH_SHORT).show();
         });
 
         findViewById(R.id.finish).setOnClickListener(view -> Snackbar.make(view, dataFormat.format(System.currentTimeMillis() - startTime), Snackbar.LENGTH_SHORT).show());
+        */
+
+        startButton = findViewById(R.id.start);
+        startButton.setOnClickListener(this);
+
+        Button stopButton = findViewById(R.id.finish);
+        stopButton.setOnClickListener(this);
 
     }
 
@@ -88,10 +110,11 @@ public class MainActivity extends AppCompatActivity
                     + " Z: " + sensorZ;
             textView.setText(strTmp);
 
-            showInfo(event);
+            // showInfo(event);
         }
     }
 
+    /*
     // （お好みで）加速度センサーの各種情報を表示
     private void showInfo(SensorEvent event){
         // センサー名
@@ -155,9 +178,51 @@ public class MainActivity extends AppCompatActivity
 
         textInfo.setText(info);
     }
+     */
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
+    }
+
+    @Override
+    public void onClick(View v) {
+        Thread thread;
+        if (v == startButton){
+            stopRun = false;
+            thread = new Thread(this);
+            thread.start();
+
+//            startTime = System.currentTimeMillis();
+            checkpoint = System.currentTimeMillis();
+        } else {
+            stopRun = true;
+            count = 0;
+            info = txt + count;
+            textInfo.setText(info);
+        }
+    }
+
+    @Override
+    public void run() {
+        int period = 10;
+
+        while(!stopRun) {
+            try {
+                Thread.sleep(period);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                stopRun = true;
+            }
+
+            handler.post(() -> {
+                if (System.currentTimeMillis() - checkpoint >= 2000) {
+                    count++;
+                    checkpoint = System.currentTimeMillis();
+                }
+                info = txt + count;
+                textInfo.setText(info);
+            });
+        }
     }
 }
