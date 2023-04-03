@@ -3,6 +3,8 @@ package com.example.accmeasure;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
+import android.media.AudioAttributes;
+import android.media.SoundPool;
 import android.os.Bundle;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
@@ -13,11 +15,6 @@ import android.os.Looper;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-
-//import com.google.android.material.snackbar.Snackbar;
-
-//import java.text.SimpleDateFormat;
-//import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity
         implements SensorEventListener, Runnable, View.OnClickListener {
@@ -33,7 +30,8 @@ public class MainActivity extends AppCompatActivity
     private final Handler handler = new Handler(Looper.getMainLooper());
     private volatile boolean stopRun = false;
 
-    // private final SimpleDateFormat dataFormat = new SimpleDateFormat("mm:ss.SS", Locale.JAPAN);
+    private SoundPool soundPool;
+    private int tick;
     private int count = 0;
     private final String txt = "カウント：";
     private String info;
@@ -45,6 +43,12 @@ public class MainActivity extends AppCompatActivity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        AudioAttributes audioAttributes = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build();
+
+        soundPool = new SoundPool.Builder().setAudioAttributes(audioAttributes).setMaxStreams(1).build();
+
+        tick = soundPool.load(this, R.raw.maou_se_system41, 1);
+
         // Get an instance of the SensorManager
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
 
@@ -54,15 +58,6 @@ public class MainActivity extends AppCompatActivity
 
         // Get an instance of the TextView
         textView = findViewById(R.id.text_view);
-
-        /*
-        findViewById(R.id.start).setOnClickListener(view -> {
-            startTime = System.currentTimeMillis();
-            Snackbar.make(view, "スタートしました", Snackbar.LENGTH_SHORT).show();
-        });
-
-        findViewById(R.id.finish).setOnClickListener(view -> Snackbar.make(view, dataFormat.format(System.currentTimeMillis() - startTime), Snackbar.LENGTH_SHORT).show());
-        */
 
         startButton = findViewById(R.id.start);
         startButton.setOnClickListener(this);
@@ -114,72 +109,6 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    /*
-    // （お好みで）加速度センサーの各種情報を表示
-    private void showInfo(SensorEvent event){
-        // センサー名
-        StringBuffer info = new StringBuffer("Name: ");
-        info.append(event.sensor.getName());
-        info.append("\n");
-
-        // ベンダー名
-        info.append("Vendor: ");
-        info.append(event.sensor.getVendor());
-        info.append("\n");
-
-        // 型番
-        info.append("Type: ");
-        info.append(event.sensor.getType());
-        info.append("\n");
-
-        // 最小遅れ
-        int data = event.sensor.getMinDelay();
-        info.append("Min-delay: ");
-        info.append(data);
-        info.append(" usec\n");
-
-        // 最大遅れ
-        data = event.sensor.getMaxDelay();
-        info.append("Max-delay: ");
-        info.append(data);
-        info.append(" usec\n");
-
-        // レポートモード
-        data = event.sensor.getReportingMode();
-        String stinfo = "unknown";
-        if(data == 0){
-            stinfo = "REPORTING_MODE_CONTINUOUS";
-        }else if(data == 1){
-            stinfo = "REPORTING_MODE_ON_CHANGE";
-        }else if(data == 2){
-            stinfo = "REPORTING_MODE_ONE_SHOT";
-        }
-        info.append("ReportingMode: ");
-        info.append(stinfo);
-        info.append("\n");
-
-        // 最大レンジ
-        info.append("MaxRange: ");
-        float fData = event.sensor.getMaximumRange();
-        info.append(fData);
-        info.append("\n");
-
-        // 分解能
-        info.append("Resolution: ");
-        fData = event.sensor.getResolution();
-        info.append(fData);
-        info.append(" m/s^2\n");
-
-        // 消費電流
-        info.append("Power: ");
-        fData = event.sensor.getPower();
-        info.append(fData);
-        info.append(" mA\n");
-
-        textInfo.setText(info);
-    }
-     */
-
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
 
@@ -203,6 +132,7 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    @SuppressWarnings("BusyWait")
     @Override
     public void run() {
         int period = 10;
@@ -218,6 +148,7 @@ public class MainActivity extends AppCompatActivity
             handler.post(() -> {
                 if (System.currentTimeMillis() - checkpoint >= 2000) {
                     count++;
+                    soundPool.play(tick, 1.0f, 1.0f, 0, 0, 1);
                     checkpoint = System.currentTimeMillis();
                 }
                 info = txt + count;
