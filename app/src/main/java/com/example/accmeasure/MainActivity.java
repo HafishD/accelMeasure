@@ -8,11 +8,13 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-//import android.view.View;
-import android.widget.Button;
+//import android.widget.Button;
 import android.widget.TextView;
 
 import com.google.android.material.snackbar.Snackbar;
+
+import java.text.SimpleDateFormat;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity
         implements SensorEventListener {
@@ -20,9 +22,14 @@ public class MainActivity extends AppCompatActivity
     private SensorManager sensorManager;
     private TextView textView, textInfo;
 
+    private long startTime;
+
+    private final SimpleDateFormat dataFormat = new SimpleDateFormat("mm:ss.SS", Locale.JAPAN);
+
     @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
@@ -34,8 +41,13 @@ public class MainActivity extends AppCompatActivity
         // Get an instance of the TextView
         textView = findViewById(R.id.text_view);
 
-        Button button = findViewById(R.id.button);
-        button.setOnClickListener(view -> Snackbar.make(view, "スタートボタンが押されました", Snackbar.LENGTH_SHORT).show());
+        findViewById(R.id.start).setOnClickListener(view -> {
+            startTime = System.currentTimeMillis();
+            Snackbar.make(view, "スタートしました", Snackbar.LENGTH_SHORT).show();
+        });
+
+        findViewById(R.id.finish).setOnClickListener(view -> Snackbar.make(view, dataFormat.format(System.currentTimeMillis() - startTime), Snackbar.LENGTH_SHORT).show());
+
     }
 
     @Override
