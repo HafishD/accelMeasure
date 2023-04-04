@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">accMeasure</string>
+    <string name="strtbttn">スタート</string>
+    <string name="endbttn">終了</string>
 </resources>
