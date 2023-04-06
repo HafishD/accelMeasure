@@ -2,8 +2,9 @@ package com.example.accmeasure;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.annotation.SuppressLint;
+import android.content.pm.ActivityInfo;
 import android.graphics.Color;
-import android.graphics.DashPathEffect;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
 import android.os.Bundle;
@@ -19,28 +20,24 @@ import android.widget.TextView;
 
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.XAxis;
-import com.github.mikephil.charting.components.YAxis;
 import com.github.mikephil.charting.data.Entry;
 import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
-
-import java.util.ArrayList;
+import com.github.mikephil.charting.interfaces.datasets.ILineDataSet;
 
 public class MainActivity extends AppCompatActivity
         implements SensorEventListener, Runnable, View.OnClickListener {
 
     private SensorManager sensorManager;
 
-    private final ArrayList<Entry> values1 = new ArrayList<>();
-    private final ArrayList<Entry> values2 = new ArrayList<>();
-    private final ArrayList<Entry> values3 = new ArrayList<>();
+    private Sensor accel;
+
     private TextView textView, textInfo;
 
-    private long startTime;
+    private long startTime = 0;
     private long checkpoint;
 
     private Button startButton;
-    private boolean startDraw = false;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private volatile boolean stopRun = false;
@@ -52,12 +49,26 @@ public class MainActivity extends AppCompatActivity
     private String info;
 
     private LineChart mChart;
+    private final String[] labels = new String[]{
+            "linear_accelerationX",
+            "linear_accelerationY",
+            "linear_accelerationZ"};
+    private final int[] colors = new int[]{
+            Color.BLUE,
+            Color.GRAY,
+            Color.MAGENTA};
 
+    @SuppressLint("SourceLockedOrientationActivity")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // 縦画面
+        setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
+
+        startTime = System.currentTimeMillis();
 
         // 効果音
         AudioAttributes audioAttributes = new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build();
@@ -87,26 +98,15 @@ public class MainActivity extends AppCompatActivity
         // グラフ
         mChart = findViewById(R.id.line_chart);
 
-        mChart.setDrawGridBackground(true);
+        mChart.setData(new LineData()); //インスタンス生成
 
         mChart.getDescription().setEnabled(false);
 
-        XAxis xAxis = mChart.getXAxis();
-        xAxis.enableGridDashedLine(10f, 10f, 0f);
-        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        mChart.setDrawGridBackground(true);
 
-        YAxis leftAxis = mChart.getAxisLeft();
-        leftAxis.setAxisMaximum(15f);
-        leftAxis.setAxisMinimum(-15f);
-        leftAxis.enableGridDashedLine(10f, 10f, 0f);
-        leftAxis.setDrawZeroLine(true);
+        mChart.getXAxis().setPosition(XAxis.XAxisPosition.BOTTOM);
 
         mChart.getAxisRight().setEnabled(false);
-
-         setData();
-
-        mChart.animateX(1000);
-        mChart.invalidate();
 
     }
 
@@ -114,7 +114,7 @@ public class MainActivity extends AppCompatActivity
     protected void onResume() {
         super.onResume();
         // Listenerの登録
-        Sensor accel = sensorManager.getDefaultSensor(
+        accel = sensorManager.getDefaultSensor(
                 Sensor.TYPE_ACCELEROMETER);
 
         sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_NORMAL);
@@ -133,28 +133,44 @@ public class MainActivity extends AppCompatActivity
         sensorManager.unregisterListener(this);
     }
 
-    @SuppressWarnings("SuspiciousNameCombination") // named sensorX but got set as 'y' parameter
     @Override
     public void onSensorChanged(SensorEvent event) {
-         float sensorX, sensorY, sensorZ;
-         float updTime;
+         long updTime = 0;
 
         if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            sensorX = event.values[0];
-            sensorY = event.values[1];
-            sensorZ = event.values[2];
-
             String strTmp = "加速度センサー\n"
-                    + " X: " + sensorX + "\n"
-                    + " Y: " + sensorY + "\n"
-                    + " Z: " + sensorZ;
+                    + " X: " + event.values[0] + "\n"
+                    + " Y: " + event.values[1] + "\n"
+                    + " Z: " + event.values[2];
             textView.setText(strTmp);
 
-            if (startDraw) {
-                updTime = (float) System.currentTimeMillis() - startTime;
-                values1.add(new Entry(updTime, sensorX));
-                values2.add(new Entry(updTime, sensorY));
-                values3.add(new Entry(updTime, sensorZ));
+            LineData data = mChart.getLineData();
+
+
+            if (startTime > 0){
+                updTime = System.currentTimeMillis() - startTime;
+            }
+
+            if (data != null){
+                for(int i = 0; i < 3; i++){
+                    ILineDataSet set3 = data.getDataSetByIndex(i);
+                    if (set3 == null) {
+                        LineDataSet set = new LineDataSet(null, labels[i]);
+                        set.setLineWidth(2.0f);
+                        set.setColor(colors[i]);
+                        set.setDrawCircles(false);
+                        set.setDrawValues(false);
+                        set3 = set;
+                        data.addDataSet(set3);
+                    }
+
+                    data.addEntry(new Entry((float) updTime/1000, event.values[i]), i);
+
+                    data.notifyDataChanged();
+                }
+                mChart.notifyDataSetChanged();
+                mChart.setVisibleXRangeMaximum(50);
+                mChart.moveViewToX(data.getEntryCount());
             }
         }
     }
@@ -169,15 +185,15 @@ public class MainActivity extends AppCompatActivity
         Thread thread;
         if (v == startButton){
             stopRun = false;
-            startDraw = true;
             thread = new Thread(this);
             thread.start();
 
-            startTime = System.currentTimeMillis();
             checkpoint = System.currentTimeMillis();
+
+            sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_NORMAL);
         } else {
             stopRun = true;
-            startDraw = false;
+            sensorManager.unregisterListener(this);
             count = 0;
             info = txt + count;
             textInfo.setText(info);
@@ -195,7 +211,6 @@ public class MainActivity extends AppCompatActivity
             } catch (InterruptedException e) {
                 e.printStackTrace();
                 stopRun = true;
-                startDraw = false;
                 count = 0;
                 textInfo.setText(info);
             }
@@ -210,61 +225,6 @@ public class MainActivity extends AppCompatActivity
                 info = txt + count;
                 textInfo.setText(info);
             });
-        }
-    }
-
-    private void setData() {
-        LineDataSet set1, set2, set3;
-
-        if (mChart.getData() != null && mChart.getData().getDataSetCount() > 0) {
-            set1 = (LineDataSet) mChart.getData().getDataSetByIndex(0);
-            set2 = (LineDataSet) mChart.getData().getDataSetByIndex(1);
-            set3 = (LineDataSet) mChart.getData().getDataSetByIndex(2);
-
-            set1.setValues(values1);
-            set2.setValues(values2);
-            set3.setValues(values3);
-
-            mChart.getData().notifyDataChanged();
-            mChart.notifyDataSetChanged();
-        } else {
-            // create a dataset and give it a type
-            set1 = new LineDataSet(values1, "DataSet 1");
-            set1.setDrawIcons(false);
-            set1.setColor(Color.BLUE);
-            set1.setLineWidth(1f);
-            set1.setValueTextSize(0f);
-            set1.setDrawFilled(false);
-            set1.setFormLineWidth(1f);
-            set1.setFormLineDashEffect(new DashPathEffect(new float[]{10f, 5f}, 0f));
-            set1.setFormSize(15.f);
-
-            // create a dataset and give it a type
-            set2 = new LineDataSet(values2, "DataSet 2");
-            set2.setDrawIcons(false);
-            set2.setColor(Color.RED);
-            set2.setLineWidth(1f);
-            set2.setValueTextSize(0f);
-            set2.setDrawFilled(false);
-            set2.setFormLineWidth(1f);
-            set2.setFormLineDashEffect(new DashPathEffect(new float[]{10f, 5f}, 0f));
-            set2.setFormSize(15.f);
-
-            set3 = new LineDataSet(values3, "DataSet 3");
-            set3.setDrawIcons(false);
-            set3.setColor(Color.GREEN);
-            set3.setLineWidth(1f);
-            set3.setValueTextSize(0f);
-            set3.setDrawFilled(false);
-            set3.setFormLineWidth(1f);
-            set3.setFormLineDashEffect(new DashPathEffect(new float[]{10f, 5f}, 0f));
-            set3.setFormSize(15.f);
-
-            // create a data object with the data sets
-            LineData data = new LineData(set1, set2, set3);
-
-            // set data
-            mChart.setData(data);
         }
     }
 }
