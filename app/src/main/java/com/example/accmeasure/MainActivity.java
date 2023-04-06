@@ -75,7 +75,7 @@ public class MainActivity extends AppCompatActivity
 
         soundPool = new SoundPool.Builder().setAudioAttributes(audioAttributes).setMaxStreams(1).build();
 
-        tick = soundPool.load(this, R.raw.maou_se_system41, 1);
+        tick = soundPool.load(this, R.raw.clap, 1);
 
         //　加速度センサー
         // Get an instance of the SensorManager
